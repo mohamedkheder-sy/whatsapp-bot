@@ -30,7 +30,7 @@ async function startBot() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         // 👇 التغيير هنا: جعلناه Firefox ليقبل الاتصال
-        browser: ["Windows", "Firefox", "122.0"], 
+        browser: ["Mac OS", "Safari","17.0"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
