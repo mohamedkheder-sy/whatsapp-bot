@@ -1,6 +1,4 @@
-// 👇 حل مشكلة التشفير
 global.crypto = require("crypto");
-
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -10,20 +8,18 @@ const {
     delay
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
-const http = require('http'); // مكتبة لعمل سيرفر وهمي
+const http = require('http');
 
-// 🔴🔴 تأكد من رقمك هنا 🔴🔴
+// 🔴 رقمك جاهز هنا
 const phoneNumber = "201066706529"; 
 
-// 👇 هذا هو "القلب الصناعي" لمنع Koyeb من إغلاق البوت 👇
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot is running and Healthy!');
+    res.end('Bot is running!');
 });
 server.listen(8000, () => {
-    console.log('✅ السيرفر الوهمي يعمل الآن على المنفذ 8000 للحفاظ على البوت حياً');
+    console.log('✅ السيرفر يعمل للحفاظ على البوت حياً');
 });
-// 👆 انتهى كود السيرفر 👆
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
@@ -33,7 +29,8 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
-        browser: ["Ubuntu", "Chrome", "20.0.04"], 
+        // 👇 التغيير هنا: جعلناه Firefox ليقبل الاتصال
+        browser: ["Windows", "Firefox", "122.0"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
@@ -42,7 +39,6 @@ async function startBot() {
     });
 
     if (!sock.authState.creds.registered) {
-        // ننتظر 10 ثواني حتى يستقر السيرفر ثم نطلب الكود
         setTimeout(async () => {
             console.log(`\n⚙️ جاري طلب كود الربط للرقم: ${phoneNumber}`);
             try {
@@ -51,9 +47,9 @@ async function startBot() {
                 console.log(`✅ كود الربط هو:  ${code}`);
                 console.log(`==========================\n`);
             } catch (err) {
-                console.log('❌ فشل الاتصال، سيتم المحاولة مجدداً...');
+                console.log('❌ فشل الاتصال.. انتظر المحاولة التالية');
             }
-        }, 10000); 
+        }, 8000);
     }
 
     sock.ev.on('connection.update', (update) => {
@@ -62,7 +58,7 @@ async function startBot() {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) startBot();
         } else if (connection === 'open') {
-            console.log('🚀 البوت متصل ومتاح للجميع!');
+            console.log('🚀 البوت متصل بنجاح!');
         }
     });
 
@@ -71,7 +67,6 @@ async function startBot() {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
-        // هنا يمكنك إضافة أوامرك
     });
 }
 
