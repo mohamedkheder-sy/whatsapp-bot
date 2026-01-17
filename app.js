@@ -1,4 +1,4 @@
-// استيراد المكتبات اللازمة
+// 1. استيراد المكتبات
 global.crypto = require("crypto");
 const { 
     default: makeWASocket, 
@@ -10,25 +10,21 @@ const {
 const pino = require("pino");
 const express = require('express');
 
-// إعداد سيرفر Express لإبقاء الخدمة تعمل على Koyeb
+// 2. إعداد سيرفر Express
 const app = express();
-const port = process.env.PORT || 8000; // Koyeb يستخدم منافذ مختلفة أحياناً
+const port = process.env.PORT || 8000;
 
-// 🟢 إعدادات البوت
-const phoneNumber = "201066706529"; // رقم الهاتف الخاص بك
+// رقم الهاتف (تأكد من كتابته بشكل صحيح مع رمز الدولة)
+const phoneNumber = "201066706529"; 
 
 async function startBot() {
-    // 1. إدارة جلسة الاتصال (لحفظ تسجيل الدخول)
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-    
-    // 2. جلب أحدث إصدار من مكتبة واتساب
     const { version } = await fetchLatestBaileysVersion();
 
-    // 3. إنشاء اتصال البوت
     const sock = makeWASocket({
         version,
         logger: pino({ level: "silent" }),
-        printQRInTerminal: false, // لا نريد QR لأننا سنستخدم كود الربط
+        printQRInTerminal: false,
         browser: ["Ubuntu", "Chrome", "20.0.0"], 
         auth: {
             creds: state.creds,
@@ -36,7 +32,7 @@ async function startBot() {
         },
     });
 
-    // 4. طلب كود الربط (Pairing Code) إذا لم يكن مسجلاً
+    // طلب كود الربط
     if (!sock.authState.creds.registered) {
         setTimeout(async () => {
             try {
@@ -46,3 +42,41 @@ async function startBot() {
                 console.log(`========================================\n`);
             } catch (err) {
                 console.error('❌ خطأ في طلب كود الربط:', err);
+            }
+        }, 6000);
+    }
+
+    // إدارة الاتصال
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) startBot();
+        } else if (connection === 'open') {
+            console.log('🚀 تم الاتصال بنجاح!');
+        }
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    // استقبال الرسائل
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+        
+        if (text === 'بوت') {
+            await sock.sendMessage(msg.key.remoteJid, { text: 'نعم، أنا أعمل الآن! 🤖' });
+        }
+    });
+}
+
+// 3. تشغيل السيرفر والبوت
+app.get('/', (req, res) => {
+    res.send('<h1>WhatsApp Bot is Online! 🚀</h1>');
+});
+
+app.listen(port, () => {
+    console.log(`📡 Server running on port ${port}`);
+    startBot();
+});
