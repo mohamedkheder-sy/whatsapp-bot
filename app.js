@@ -12,7 +12,7 @@ const {
 const pino = require("pino");
 
 // 🔴🔴 تأكد أن رقمك هنا صحيح 🔴🔴
-const phoneNumber = "201102735626"; 
+const phoneNumber = "201066706529"; 
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
