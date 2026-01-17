@@ -8,8 +8,7 @@ const {
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 
-// 🔴🔴 هام: امسح هذا الرقم واكتب رقمك الحقيقي 🔴🔴
-// مثال: "201123456789"
+// 🔴🔴 هام: تأكد أن رقمك هنا صحيح (بدون +) 🔴🔴
 const phoneNumber = "201102735626"; 
 
 async function startBot() {
@@ -20,6 +19,8 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
+        // 👇 هذا هو السطر السحري الذي كان ينقصك 👇
+        browser: ["Ubuntu", "Chrome", "20.0.04"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
@@ -37,9 +38,10 @@ async function startBot() {
                 console.log(`✅ كود الربط هو:  ${code}`);
                 console.log(`==========================\n`);
             } catch (err) {
-                console.log('❌ حدث خطأ! تأكد أنك كتبت رقمك بشكل صحيح.');
+                console.log('❌ فشل الاتصال! إليك السبب الحقيقي:');
+                console.log(err); // سيطبع لنا السبب الحقيقي لو فشل
             }
-        }, 3000);
+        }, 4000); // زدنا الوقت قليلاً لضمان الاستقرار
     }
 
     sock.ev.on('connection.update', (update) => {
@@ -73,4 +75,3 @@ async function startBot() {
 }
 
 startBot();
-             
