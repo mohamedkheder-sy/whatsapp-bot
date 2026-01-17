@@ -1,4 +1,4 @@
-// 👇 هذا السطر هو الحل لمشكلة crypto (مهم جداً) 👇
+// 👇 حل مشكلة التشفير
 global.crypto = require("crypto");
 
 const { 
@@ -10,9 +10,20 @@ const {
     delay
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
+const http = require('http'); // مكتبة لعمل سيرفر وهمي
 
-// 🔴🔴 تأكد أن رقمك هنا صحيح 🔴🔴
+// 🔴🔴 تأكد من رقمك هنا 🔴🔴
 const phoneNumber = "201066706529"; 
+
+// 👇 هذا هو "القلب الصناعي" لمنع Koyeb من إغلاق البوت 👇
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running and Healthy!');
+});
+server.listen(8000, () => {
+    console.log('✅ السيرفر الوهمي يعمل الآن على المنفذ 8000 للحفاظ على البوت حياً');
+});
+// 👆 انتهى كود السيرفر 👆
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
@@ -22,7 +33,6 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
-        // تعريف المتصفح لتجنب الحظر
         browser: ["Ubuntu", "Chrome", "20.0.04"], 
         auth: {
             creds: state.creds,
@@ -32,18 +42,18 @@ async function startBot() {
     });
 
     if (!sock.authState.creds.registered) {
-        console.log(`\n⚙️ جاري طلب كود الربط للرقم: ${phoneNumber}`);
+        // ننتظر 10 ثواني حتى يستقر السيرفر ثم نطلب الكود
         setTimeout(async () => {
+            console.log(`\n⚙️ جاري طلب كود الربط للرقم: ${phoneNumber}`);
             try {
                 const code = await sock.requestPairingCode(phoneNumber);
                 console.log(`\n==========================`);
                 console.log(`✅ كود الربط هو:  ${code}`);
                 console.log(`==========================\n`);
             } catch (err) {
-                console.log('❌ فشل الاتصال! السبب:');
-                console.log(err);
+                console.log('❌ فشل الاتصال، سيتم المحاولة مجدداً...');
             }
-        }, 5000); 
+        }, 10000); 
     }
 
     sock.ev.on('connection.update', (update) => {
@@ -61,18 +71,7 @@ async function startBot() {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
-
-        const from = msg.key.remoteJid;
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-
-        if ((text === '!all' || text === 'منشن') && from.endsWith('@g.us')) {
-            const group = await sock.groupMetadata(from);
-            const members = group.participants.map(p => p.id);
-            await sock.sendMessage(from, { 
-                text: "📣 منشن للجميع:", 
-                mentions: members 
-            });
-        }
+        // هنا يمكنك إضافة أوامرك
     });
 }
 
