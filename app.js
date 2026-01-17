@@ -10,7 +10,7 @@ const pino = require("pino");
 
 // 🔴🔴 هام: امسح هذا الرقم واكتب رقمك الحقيقي 🔴🔴
 // مثال: "201123456789"
-const phoneNumber = "201066706529"; 
+const phoneNumber = "201102735626"; 
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
