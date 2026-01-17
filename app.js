@@ -10,9 +10,10 @@ const {
 const pino = require("pino");
 const http = require('http');
 
-// 🔴 رقمك جاهز هنا
+// 🔴 رقمك (010)
 const phoneNumber = "201066706529"; 
 
+// السيرفر الوهمي (القلب الصناعي)
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot is running!');
@@ -29,8 +30,8 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
-        // 👇 التغيير هنا: جعلناه Firefox ليقبل الاتصال
-        browser: ["Mac OS", "Safari","17.0"], 
+        // 👇 التمويه: نقول لواتساب أننا ويندوز وكروم (الأكثر ثقة)
+        browser: ["Windows", "Chrome", "10.15.7"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
@@ -39,6 +40,7 @@ async function startBot() {
     });
 
     if (!sock.authState.creds.registered) {
+        // ننتظر 6 ثواني قبل طلب الكود
         setTimeout(async () => {
             console.log(`\n⚙️ جاري طلب كود الربط للرقم: ${phoneNumber}`);
             try {
@@ -47,9 +49,9 @@ async function startBot() {
                 console.log(`✅ كود الربط هو:  ${code}`);
                 console.log(`==========================\n`);
             } catch (err) {
-                console.log('❌ فشل الاتصال.. انتظر المحاولة التالية');
+                console.log('❌ فشل الاتصال..');
             }
-        }, 8000);
+        }, 6000);
     }
 
     sock.ev.on('connection.update', (update) => {
@@ -58,8 +60,19 @@ async function startBot() {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) startBot();
         } else if (connection === 'open') {
-            console.log('🚀 البوت متصل بنجاح!');
+            console.log('🚀 تم الاتصال بنجاح!');
         }
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message) return;
+    });
+}
+
+startBot();
     });
 
     sock.ev.on('creds.update', saveCreds);
