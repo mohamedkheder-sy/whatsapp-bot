@@ -1,3 +1,6 @@
+// 👇 هذا السطر هو الحل لمشكلة crypto (مهم جداً) 👇
+global.crypto = require("crypto");
+
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -8,7 +11,7 @@ const {
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 
-// 🔴🔴 هام: تأكد أن رقمك هنا صحيح (بدون +) 🔴🔴
+// 🔴🔴 تأكد أن رقمك هنا صحيح 🔴🔴
 const phoneNumber = "201102735626"; 
 
 async function startBot() {
@@ -19,7 +22,7 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
-        // 👇 هذا هو السطر السحري الذي كان ينقصك 👇
+        // تعريف المتصفح لتجنب الحظر
         browser: ["Ubuntu", "Chrome", "20.0.04"], 
         auth: {
             creds: state.creds,
@@ -28,7 +31,6 @@ async function startBot() {
         markOnlineOnConnect: true,
     });
 
-    // كود الربط التلقائي
     if (!sock.authState.creds.registered) {
         console.log(`\n⚙️ جاري طلب كود الربط للرقم: ${phoneNumber}`);
         setTimeout(async () => {
@@ -38,10 +40,10 @@ async function startBot() {
                 console.log(`✅ كود الربط هو:  ${code}`);
                 console.log(`==========================\n`);
             } catch (err) {
-                console.log('❌ فشل الاتصال! إليك السبب الحقيقي:');
-                console.log(err); // سيطبع لنا السبب الحقيقي لو فشل
+                console.log('❌ فشل الاتصال! السبب:');
+                console.log(err);
             }
-        }, 4000); // زدنا الوقت قليلاً لضمان الاستقرار
+        }, 5000); 
     }
 
     sock.ev.on('connection.update', (update) => {
