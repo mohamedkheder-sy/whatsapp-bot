@@ -1,15 +1,15 @@
 {
-  "name": "whatsapp-bot-updated",
+  "name": "whatsapp-bot-v2",
   "version": "2.0.0",
-  "description": "WhatsApp Bot Latest",
+  "description": "Fixed Bot",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "latest",
+    "@whiskeysockets/baileys": "^6.7.5",
     "express": "^4.19.2",
-    "pino": "^8.19.0",
+    "pino": "^9.0.0",
     "qrcode-terminal": "^0.12.0"
   }
 }
