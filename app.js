@@ -1,6 +1,6 @@
 /**
  * بوت واتساب متكامل - إصدار مستقر لمنصة Koyeb
- * تم تنظيف الكود وتحسين معالج كود الربط
+ * تم تنظيف الكود ليعمل بنجاح
  */
 
 const { 
@@ -29,11 +29,11 @@ const settings = {
 };
 
 async function startBot() {
-    [span_0](start_span)// جلب أحدث إصدار من المكتبة لضمان التوافق مع واتساب[span_0](end_span)
+    // جلب أحدث إصدار من المكتبة لضمان التوافق مع واتساب
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`🚀 Version: ${version.join('.')} | Latest: ${isLatest}`);
 
-    [span_1](start_span)// إعداد حفظ الجلسة محلياً[span_1](end_span)
+    // إعداد حفظ الجلسة محلياً
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
     const sock = makeWASocket({
@@ -67,7 +67,7 @@ async function startBot() {
         }
     }
 
-    [span_2](start_span)// إدارة تحديثات الاتصال وإعادة التشغيل التلقائي[span_2](end_span)
+    // إدارة تحديثات الاتصال وإعادة التشغيل التلقائي
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
         
@@ -87,7 +87,7 @@ async function startBot() {
         }
     });
 
-    [span_3](start_span)// معالج الرسائل والأوامر[span_3](end_span)
+    // معالج الرسائل والأوامر
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             const m = messages[0];
@@ -108,6 +108,20 @@ async function startBot() {
         }
     });
 
+    // حفظ بيانات الجلسة عند تحديثها
+    sock.ev.on('creds.update', saveCreds);
+}
+
+// حماية السيرفر من الانهيار
+process.on('uncaughtException', (err) => console.error("Uncaught Exception:", err));
+process.on('unhandledRejection', (err) => console.error("Unhandled Rejection:", err));
+
+// تشغيل واجهة الويب لمنع Koyeb من إيقاف الخدمة
+app.get('/', (req, res) => res.send(`Bot is Running ✅`));
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+    startBot();
+});
     [span_4](start_span)// حفظ بيانات الجلسة عند تحديثها[span_4](end_span)
     sock.ev.on('creds.update', saveCreds);
 }
