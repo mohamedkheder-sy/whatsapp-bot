@@ -122,6 +122,18 @@ app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
     startBot();
 });
+}
+
+// حماية السيرفر من الانهيار
+process.on('uncaughtException', (err) => console.error("Uncaught Exception:", err));
+process.on('unhandledRejection', (err) => console.error("Unhandled Rejection:", err));
+
+// تشغيل واجهة الويب لمنع Koyeb من إيقاف الخدمة
+app.get('/', (req, res) => res.send(`Bot is Running ✅`));
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+    startBot();
+});
     [span_4](start_span)// حفظ بيانات الجلسة عند تحديثها[span_4](end_span)
     sock.ev.on('creds.update', saveCreds);
 }
