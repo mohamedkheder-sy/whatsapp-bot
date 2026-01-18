@@ -1,3 +1,7 @@
+// 🔥 1. تعريف مكتبة التشفير (السطر الذي كان ناقصاً)
+const crypto = require("crypto");
+global.crypto = crypto;
+
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -12,13 +16,12 @@ const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 8000; 
 
-// 🟢 رقمك (تأكد أنه صحيح 100%)
+// 🟢 رقمك
 const phoneNumber = "201066706529"; 
 
 async function startBot() {
-    // ⚠️ إلغاء جلب أحدث نسخة واستخدام نسخة مستقرة يدوياً
-    // const { version } = await fetchLatestBaileysVersion(); 
-    const version = [2, 3000, 1015901307]; // نسخة مستقرة جداً للبوتات
+    // نسخة مستقرة
+    const version = [2, 3000, 1015901307]; 
     console.log(`Using Fixed WA v${version.join('.')}`);
 
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
@@ -28,12 +31,12 @@ async function startBot() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         mobile: false,
+        // تعريف المتصفح لتجنب الحظر
         browser: ["Ubuntu", "Chrome", "120.0.0.0"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
         },
-        // تقليل المهلة قليلاً لتسريع المحاولة
         connectTimeoutMs: 20000, 
     });
 
@@ -45,13 +48,7 @@ async function startBot() {
             console.log(`🔥 كود الربط هو: ${code}`);
             console.log(`========================================\n`);
         } catch (err) {
-            // 🔥 طباعة سبب الخطأ بالتفصيل لنعرف المشكلة
             console.log('❌ فشل طلب الكود. السبب:', err.message || err);
-            
-            // إذا كان السبب هو الحظر (429 Rate Limit)
-            if (String(err).includes('429')) {
-                console.log('⏳ تم حظر الـ IP مؤقتاً لكثرة المحاولات. انتظر دقيقة...');
-            }
         }
     }
 
