@@ -1,4 +1,4 @@
-// 🔥 1. تعريف مكتبة التشفير (السطر الذي كان ناقصاً)
+// تعريف مكتبة التشفير
 const crypto = require("crypto");
 global.crypto = crypto;
 
@@ -7,7 +7,8 @@ const {
     useMultiFileAuthState, 
     DisconnectReason, 
     makeCacheableSignalKeyStore,
-    delay
+    delay,
+    Browsers // 👈 أضفنا هذه الأداة المهمة
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const express = require('express');
@@ -20,7 +21,7 @@ const port = process.env.PORT || 8000;
 const phoneNumber = "201066706529"; 
 
 async function startBot() {
-    // نسخة مستقرة
+    // استخدام النسخة المستقرة التي نجحت معك
     const version = [2, 3000, 1015901307]; 
     console.log(`Using Fixed WA v${version.join('.')}`);
 
@@ -31,24 +32,30 @@ async function startBot() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         mobile: false,
-        // تعريف المتصفح لتجنب الحظر
-        browser: ["Ubuntu", "Chrome", "120.0.0.0"], 
+        // ✅ التعديل هنا: استخدام متصفح رسمي لتجنب خطأ 405
+        browser: Browsers.ubuntu("Chrome"),
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
         },
-        connectTimeoutMs: 20000, 
+        // زيادة المهلة
+        connectTimeoutMs: 60000, 
+        keepAliveIntervalMs: 10000,
+        emitOwnEvents: true,
+        retryRequestDelayMs: 5000
     });
 
     if (!sock.authState.creds.registered) {
+        // انتظار بسيط
         await delay(3000); 
         try {
             const code = await sock.requestPairingCode(phoneNumber);
             console.log(`\n========================================`);
             console.log(`🔥 كود الربط هو: ${code}`);
+            console.log(`⏳ لديك 15 ثانية لإدخاله في هاتفك!`);
             console.log(`========================================\n`);
         } catch (err) {
-            console.log('❌ فشل طلب الكود. السبب:', err.message || err);
+            console.log('❌ فشل طلب الكود:', err.message);
         }
     }
 
@@ -59,13 +66,17 @@ async function startBot() {
             const reason = lastDisconnect?.error?.output?.statusCode;
             console.log(`⚠️ انقطع الاتصال، السبب: ${reason}`);
             
-            if (reason === 428 || reason === 401) {
-                console.log('♻️ تنظيف الجلسة القديمة...');
-                try { fs.rmSync('./auth_info', { recursive: true, force: true }); } catch (e) {}
+            // التعامل مع الأخطاء الشائعة
+            if (reason === 428 || reason === 401 || reason === 405) {
+                console.log('♻️ إعادة المحاولة تلقائياً...');
+                // في حالة 405 لا نحذف الجلسة، فقط نعيد الاتصال
+                if (reason === 401) {
+                     try { fs.rmSync('./auth_info', { recursive: true, force: true }); } catch (e) {}
+                }
             }
             startBot();
         } else if (connection === 'open') {
-            console.log('🚀 مبروك! البوت يعمل بنجاح.');
+            console.log('🚀 مبروك! تم الاتصال بنجاح.');
         }
     });
 
