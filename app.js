@@ -3,7 +3,9 @@ const {
     useMultiFileAuthState, 
     DisconnectReason, 
     makeCacheableSignalKeyStore,
-    delay
+    delay,
+    fetchLatestBaileysVersion,
+    Browsers
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const express = require('express');
@@ -18,14 +20,13 @@ const port = process.env.PORT || 8000;
 const settings = {
     phoneNumber: "201066706529", 
     ownerName: "Mohamed Kheder",
-    botName: "My Super Bot"
+    botName: "AzharBot"
 };
 
 async function startBot() {
     try {
-        // 🔥 التعديل هنا: استخدام إصدار محدد ومستقر بدلاً من الأحدث
-        const version = [2, 3000, 1015901307]; 
-        console.log(`🚀 Using Fixed Version: ${version.join('.')}`);
+        const { version } = await fetchLatestBaileysVersion();
+        console.log(`🚀 Version: ${version.join('.')}`);
 
         const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
@@ -34,25 +35,25 @@ async function startBot() {
             logger: pino({ level: "silent" }), 
             printQRInTerminal: false, 
             mobile: false,
-            // استخدام متصفح Ubuntu Chrome لتجنب الحظر
-            browser: ["Ubuntu", "Chrome", "20.0.04"], 
+            // ✅ التمويه: الظهور كمتصفح سفاري على ماك (مقبول جداً لدى واتساب)
+            browser: Browsers.macOS("Safari"), 
             auth: {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
             },
             connectTimeoutMs: 60000, 
-            retryRequestDelayMs: 5000,
+            retryRequestDelayMs: 2000,
         });
 
         if (!sock.authState.creds.registered) {
-            await delay(5000); 
+            await delay(3000); 
             try {
                 const code = await sock.requestPairingCode(settings.phoneNumber);
                 console.log(`\n========================================`);
-                console.log(`🔥 YOUR CODE: ${code}`);
+                console.log(`🔥 CODE: ${code}`);
                 console.log(`========================================\n`);
             } catch (err) {
-                console.log('❌ Error getting code:', err.message);
+                console.log('❌ Error:', err.message);
             }
         }
 
@@ -61,14 +62,14 @@ async function startBot() {
             
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
-                console.log(`⚠️ Connection Closed: ${reason}`);
+                console.log(`⚠️ Closed: ${reason}`);
                 
-                // إذا كان السبب هو 401 (غير مصرح)، نحذف الجلسة ونعيد المحاولة
-                if (reason === DisconnectReason.loggedOut || reason === 401) {
-                    console.log('♻️ Cleaning session...');
-                    try { fs.rmSync('./auth_info', { recursive: true, force: true }); } catch (e) {}
+                if (reason !== DisconnectReason.loggedOut) {
+                    startBot();
+                } else {
+                    console.log("Logout. Delete session.");
+                    try { fs.rmSync('./auth_info', { recursive: true, force: true }); } catch {}
                 }
-                startBot(); 
             } else if (connection === 'open') {
                 console.log('✅ Connected Successfully!');
             }
@@ -95,7 +96,7 @@ async function startBot() {
     }
 }
 
-// حماية من التوقف
+// منع توقف البوت عند الأخطاء البسيطة
 process.on('uncaughtException', (err) => console.log("Ignored Exception"));
 process.on('unhandledRejection', (err) => console.log("Ignored Rejection"));
 
