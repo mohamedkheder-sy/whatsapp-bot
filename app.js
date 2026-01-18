@@ -2,7 +2,6 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason, 
-    fetchLatestBaileysVersion, 
     makeCacheableSignalKeyStore,
     delay
 } = require("@whiskeysockets/baileys");
@@ -13,12 +12,14 @@ const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 8000; 
 
-// 🟢 تأكد أن رقمك هنا صحيح
+// 🟢 رقمك (تأكد أنه صحيح 100%)
 const phoneNumber = "201066706529"; 
 
 async function startBot() {
-    const { version } = await fetchLatestBaileysVersion();
-    console.log(`Using WA v${version.join('.')}`);
+    // ⚠️ إلغاء جلب أحدث نسخة واستخدام نسخة مستقرة يدوياً
+    // const { version } = await fetchLatestBaileysVersion(); 
+    const version = [2, 3000, 1015901307]; // نسخة مستقرة جداً للبوتات
+    console.log(`Using Fixed WA v${version.join('.')}`);
 
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
@@ -27,24 +28,30 @@ async function startBot() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         mobile: false,
-        // ✅ الحل السحري لمشكلة 428: استخدام تعريف متصفح حديث
-        browser: ["Ubuntu", "Chrome", "124.0.0.0"], 
+        browser: ["Ubuntu", "Chrome", "120.0.0.0"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
         },
-        connectTimeoutMs: 60000,
+        // تقليل المهلة قليلاً لتسريع المحاولة
+        connectTimeoutMs: 20000, 
     });
 
     if (!sock.authState.creds.registered) {
-        await delay(4000); 
+        await delay(3000); 
         try {
             const code = await sock.requestPairingCode(phoneNumber);
             console.log(`\n========================================`);
-            console.log(`🔥 كود الربط الجديد: ${code}`);
+            console.log(`🔥 كود الربط هو: ${code}`);
             console.log(`========================================\n`);
         } catch (err) {
-            console.log('❌ فشل طلب الكود، جاري المحاولة مرة أخرى...');
+            // 🔥 طباعة سبب الخطأ بالتفصيل لنعرف المشكلة
+            console.log('❌ فشل طلب الكود. السبب:', err.message || err);
+            
+            // إذا كان السبب هو الحظر (429 Rate Limit)
+            if (String(err).includes('429')) {
+                console.log('⏳ تم حظر الـ IP مؤقتاً لكثرة المحاولات. انتظر دقيقة...');
+            }
         }
     }
 
@@ -55,9 +62,8 @@ async function startBot() {
             const reason = lastDisconnect?.error?.output?.statusCode;
             console.log(`⚠️ انقطع الاتصال، السبب: ${reason}`);
             
-            // إذا كان الخطأ 428، نقوم بحذف الجلسة لإصلاحها
-            if (reason === 428) {
-                console.log('♻️ إعادة ضبط الجلسة...');
+            if (reason === 428 || reason === 401) {
+                console.log('♻️ تنظيف الجلسة القديمة...');
                 try { fs.rmSync('./auth_info', { recursive: true, force: true }); } catch (e) {}
             }
             startBot();
