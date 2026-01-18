@@ -1,8 +1,3 @@
-/**
- * بوت واتساب متكامل - إصدار مستقر لمنصة Koyeb
- * تم تنظيف الكود ليعمل بنجاح
- */
-
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -21,7 +16,6 @@ global.crypto = crypto;
 const app = express();
 const port = process.env.PORT || 8000; 
 
-// إعدادات البوت
 const settings = {
     phoneNumber: "201066706529", 
     ownerName: "Mohamed Kheder",
@@ -29,122 +23,81 @@ const settings = {
 };
 
 async function startBot() {
-    // جلب أحدث إصدار من المكتبة لضمان التوافق مع واتساب
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`🚀 Version: ${version.join('.')} | Latest: ${isLatest}`);
+    try {
+        const { version } = await fetchLatestBaileysVersion();
+        console.log(`🚀 WA Version: ${version.join('.')}`);
 
-    // إعداد حفظ الجلسة محلياً
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+        const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
-    const sock = makeWASocket({
-        version,
-        logger: pino({ level: "info" }), 
-        printQRInTerminal: false, 
-        mobile: false,
-        // تعريف المتصفح كـ Windows لزيادة الموثوقية وتجنب رفض الكود
-        browser: ["Windows", "Chrome", "110.0.5481.178"], 
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
-        },
-        connectTimeoutMs: 120000, 
-        keepAliveIntervalMs: 30000,
-    });
+        const sock = makeWASocket({
+            version,
+            logger: pino({ level: "silent" }), 
+            printQRInTerminal: false, 
+            mobile: false,
+            browser: ["Ubuntu", "Chrome", "20.0.04"], 
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
+            },
+            connectTimeoutMs: 60000, 
+        });
 
-    // طلب كود الربط مع تأخير لضمان استقرار السيرفر
-    if (!sock.authState.creds.registered) {
-        console.log("⏳ Waiting 15 seconds for server stability...");
-        await delay(15000); 
-        try {
-            const code = await sock.requestPairingCode(settings.phoneNumber);
-            console.log(`\n========================================`);
-            console.log(`🔥 YOUR PAIRING CODE: ${code}`);
-            console.log(`📱 Link your phone using this code now!`);
-            console.log(`========================================\n`);
-        } catch (err) {
-            console.error('❌ Failed to get pairing code. Retrying in 30s...', err.message);
-            setTimeout(startBot, 30000); // إعادة المحاولة بعد 30 ثانية في حال الفشل
+        if (!sock.authState.creds.registered) {
+            await delay(5000); 
+            try {
+                const code = await sock.requestPairingCode(settings.phoneNumber);
+                console.log(`\n========================================`);
+                console.log(`🔥 CODE: ${code}`);
+                console.log(`========================================\n`);
+            } catch (err) {
+                console.log('❌ Failed to get code, retrying...', err.message);
+            }
         }
-    }
 
-    // إدارة تحديثات الاتصال وإعادة التشغيل التلقائي
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-        
-        if (connection === 'close') {
-            const reason = lastDisconnect?.error?.output?.statusCode;
-            console.log(`⚠️ Connection closed. Reason: ${reason}`);
-
-            if (reason === DisconnectReason.loggedOut) {
-                console.log('❌ Logged out. Deleting session...');
-                fs.rmSync('./auth_info', { recursive: true, force: true });
-                startBot();
-            } else {
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
+            
+            if (connection === 'close') {
+                const reason = lastDisconnect?.error?.output?.statusCode;
+                console.log(`⚠️ Closed: ${reason}`);
+                
+                if (reason === DisconnectReason.loggedOut) {
+                    fs.rmSync('./auth_info', { recursive: true, force: true });
+                }
                 startBot(); 
+            } else if (connection === 'open') {
+                console.log('✅ Connected!');
             }
-        } else if (connection === 'open') {
-            console.log('✅ Connected successfully to WhatsApp!');
-        }
-    });
+        });
 
-    // معالج الرسائل والأوامر
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-        try {
-            const m = messages[0];
-            if (!m.message || m.key.fromMe) return;
-
-            const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").toLowerCase().trim();
-            const remoteJid = m.key.remoteJid;
-
-            if (text === '.اوامر' || text === '.menu') {
-                const menu = `🤖 *قائمة ${settings.botName}*\n\n1️⃣ .بنج\n2️⃣ .المطور\n\n👑 بواسطة: ${settings.ownerName}`;
-                await sock.sendMessage(remoteJid, { text: menu }, { quoted: m });
-            } 
-            else if (text === '.بنج') {
-                await sock.sendMessage(remoteJid, { text: '🚀 البوت مستعد!' }, { quoted: m });
+        sock.ev.on('messages.upsert', async ({ messages }) => {
+            try {
+                const m = messages[0];
+                if (!m.message || m.key.fromMe) return;
+                const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim();
+                
+                if (text === '.بنج') {
+                    await sock.sendMessage(m.key.remoteJid, { text: '🚀 شغال!' }, { quoted: m });
+                }
+            } catch (error) {
+                console.log("Error handling message:", error);
             }
-        } catch (err) {
-            console.error("Error processing message:", err);
-        }
-    });
+        });
 
-    // حفظ بيانات الجلسة عند تحديثها
-    sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', saveCreds);
+
+    } catch (error) {
+        console.error("Critical Error in startBot:", error);
+    }
 }
 
-// حماية السيرفر من الانهيار
-process.on('uncaughtException', (err) => console.error("Uncaught Exception:", err));
-process.on('unhandledRejection', (err) => console.error("Unhandled Rejection:", err));
+// Global Error Handling
+process.on('uncaughtException', (err) => console.error("Uncaught:", err));
+process.on('unhandledRejection', (err) => console.error("Unhandled:", err));
 
-// تشغيل واجهة الويب لمنع Koyeb من إيقاف الخدمة
-app.get('/', (req, res) => res.send(`Bot is Running ✅`));
+// Web Server
+app.get('/', (req, res) => res.send('Bot Running'));
 app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-    startBot();
-});
-}
-
-// حماية السيرفر من الانهيار
-process.on('uncaughtException', (err) => console.error("Uncaught Exception:", err));
-process.on('unhandledRejection', (err) => console.error("Unhandled Rejection:", err));
-
-// تشغيل واجهة الويب لمنع Koyeb من إيقاف الخدمة
-app.get('/', (req, res) => res.send(`Bot is Running ✅`));
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-    startBot();
-});
-    [span_4](start_span)// حفظ بيانات الجلسة عند تحديثها[span_4](end_span)
-    sock.ev.on('creds.update', saveCreds);
-}
-
-// حماية السيرفر من الانهيار
-process.on('uncaughtException', (err) => console.error("Uncaught Exception:", err));
-process.on('unhandledRejection', (err) => console.error("Unhandled Rejection:", err));
-
-[span_5](start_span)// تشغيل واجهة الويب لمنع Koyeb من إيقاف الخدمة[span_5](end_span)
-app.get('/', (req, res) => res.send(`Bot is Running ✅`));
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+    console.log(`Server on port ${port}`);
     startBot();
 });
