@@ -1,0 +1,8 @@
+# تثبيت مدير العمليات PM2 عالمياً
+npm install pm2 -g
+
+# تشغيل البوت الخاص بك
+pm2 start index.js --name "whatsapp-bot"
+
+# لمشاهدة الكود والحالة (هنا سيظهر كود الربط)
+pm2 logs whatsapp-bot
