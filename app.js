@@ -1,5 +1,3 @@
-// استيراد المكتبات اللازمة
-global.crypto = require("crypto");
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -10,96 +8,76 @@ const {
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const express = require('express');
+const fs = require('fs'); // مكتبة للتعامل مع الملفات
 
-// إعداد سيرفر Express لإبقاء الخدمة تعمل على Koyeb
 const app = express();
 const port = process.env.PORT || 8000; 
 
-// 🟢 إعدادات البوت - تأكد أن الرقم صحيح (بدون +)
+// 🟢 ضع رقمك هنا بدقة
 const phoneNumber = "201066706529"; 
 
 async function startBot() {
-    // 1. إدارة جلسة الاتصال
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-    
-    // 2. جلب أحدث إصدار
+    // جلب أحدث إصدار من واتساب لتجنب الحظر
     const { version } = await fetchLatestBaileysVersion();
     console.log(`Using WA version v${version.join('.')}`);
 
-    // 3. إنشاء اتصال البوت
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+
     const sock = makeWASocket({
         version,
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
-        mobile: false, 
-        // 🔥 هذا هو التعديل المهم جداً: استخدام هوية متصفح حديثة 🔥
-        browser: ["Ubuntu", "Chrome", "120.0.0.0"], 
+        mobile: false,
+        // استخدام تعريف متصفح حديث جداً ليقبل واتساب الكود
+        browser: ["Ubuntu", "Chrome", "20.0.04"], 
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
         },
-        generateHighQualityLinkPreview: true,
+        // زيادة المهلة لتجنب قطع الاتصال السريع
+        connectTimeoutMs: 60000, 
+        keepAliveIntervalMs: 10000,
+        syncFullHistory: false,
     });
 
-    // 4. طلب كود الربط (Pairing Code)
     if (!sock.authState.creds.registered) {
-        // ننتظر قليلاً لضمان استقرار الاتصال
-        await delay(4000);
+        await delay(3000); // انتظار استقرار الاتصال
         try {
             const code = await sock.requestPairingCode(phoneNumber);
-            // تنسيق الكود ليظهر بشكل واضح
-            const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
             console.log(`\n========================================`);
-            console.log(`✅ كود الربط الخاص بك هو:  ${formattedCode}`);
-            console.log(`⚠️  لديك 30 ثانية فقط لإدخاله في الهاتف!`);
+            console.log(`✅ كود الربط الجديد: ${code}`);
+            console.log(`⚠️ ادخل الكود بسرعة في هاتفك!`);
             console.log(`========================================\n`);
         } catch (err) {
-            console.error('❌ فشل طلب الكود (تأكد من الرقم):', err);
+            console.log('❌ لم يتم استلام الكود، جاري إعادة المحاولة...');
         }
     }
 
-    // 5. مراقبة حالة الاتصال
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
         
         if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('⚠️ تم قطع الاتصال، جاري إعادة المحاولة...');
-            
-            // إذا كان السبب هو قطع الاتصال العادي، نعيد التشغيل
-            if (shouldReconnect) {
+            let reason = lastDisconnect?.error?.output?.statusCode;
+            console.log(`⚠️ الاتصال انقطع. السبب: ${reason}`);
+
+            // إذا كان الخطأ 428 أو 401، نقوم بحذف الجلسة لعمل ريستارت نظيف
+            if (reason === 428 || reason === 401) {
+                console.log('♻️ تنظيف الجلسة القديمة وإعادة التشغيل...');
+                try { fs.rmSync('./auth_info', { recursive: true, force: true }); } catch (e) {}
                 startBot();
-            } else {
-                console.log('🛑 تم تسجيل الخروج. يرجى حذف مجلد auth_info وإعادة التشغيل.');
+            } else if (reason !== DisconnectReason.loggedOut) {
+                startBot();
             }
         } else if (connection === 'open') {
-            console.log('🚀 تم الاتصال بواتساب بنجاح! البوت جاهز 100%.');
+            console.log('🚀 تم الاتصال بنجاح! البوت يعمل.');
         }
     });
 
-    // 6. حفظ البيانات
     sock.ev.on('creds.update', saveCreds);
-
-    // 7. استقبال الرسائل (مثال)
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.message || msg.key.fromMe) return;
-        
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-        
-        // أمر تجريبي
-        if (text === '.تست') {
-            await sock.sendMessage(msg.key.remoteJid, { text: 'شغال يا كبير! 🫡' });
-        }
-    });
 }
 
-// تشغيل السيرفر الوهمي
-app.get('/', (req, res) => {
-    res.status(200).send('Bot is Running 🟢');
-});
-
+app.get('/', (req, res) => res.send('Bot is Running 🟢'));
 app.listen(port, () => {
-    console.log(`📡 Server running on port ${port}`);
+    console.log(`Server started on port ${port}`);
     startBot();
 });
